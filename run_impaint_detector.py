@@ -16,12 +16,15 @@ from inpainting_detector import InpaintingDetector
 if __name__ == "__main__":
     # Step 1: Create and configure the detector
     detector = InpaintingDetector(
-        config_name='cnn_baseline',
+        config_name='efficientNet',
         image_size=256,
         batch_size=16,
         max_epochs=25,
+        unfreeze = True,
+        unfreeze_epoch = 2,
+        unfreeze_block = ['block5', 'block6', 'block7'],
         learning_rate=1e-4,
-        model_type="cnn"  # Options: "cnn", "resnet", "efficientnet"
+        model_type="efficientNet"  # Options: "cnn", "resnet", "efficientNet"
     )
     
     # Step 2: Prepare datasets - extract and process images

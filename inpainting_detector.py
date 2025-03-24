@@ -18,7 +18,8 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import (
     ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, Callback
 )
-from model_architecture import build_cnn_model, build_resnet_model
+from model_architecture import build_cnn_model, build_resnet_model, build_efficientnetv2_model
+from unfreeze_layers import UnfreezeCallback
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -42,6 +43,9 @@ class InpaintingDetector:
     batch_size: int = 16
     num_classes: int = 2
     max_epochs: int = 25
+    unfreeze: bool = False
+    unfreeze_epoch: int = 5
+    unfreeze_block: List[str] = field(default_factory=lambda: ['block5', 'block6', 'block7'])
     learning_rate: float = 1e-4
     phase: str = field(init=False)
     save_path: Path = field(init=False)
@@ -51,6 +55,7 @@ class InpaintingDetector:
     train_labels: np.ndarray = field(init=False)
     test_labels: np.ndarray = field(init=False)
     model: Any = field(init=False)
+    base_model: Any = field(init=False)
     checkpoint_path: str = field(init=False)
     model_type: str = "cnn"  # Options: "cnn", "resnet", "efficientnet"
     
@@ -339,6 +344,8 @@ class InpaintingDetector:
 
         if self.model_type == "resnet":
             return build_resnet_model()
+        elif self.model_type == "efficientNet":
+            return build_efficientnetv2_model()
         else:  # Default to CNN
             return build_cnn_model()
     
@@ -349,7 +356,8 @@ class InpaintingDetector:
             rotation_range=5,    
             width_shift_range=0.1,
             height_shift_range=0.1,
-            horizontal_flip=False,
+            horizontal_flip=True,
+            vertical_flip = True,
             zoom_range=0.1,
             shear_range=0.0,
             fill_mode='constant',
@@ -412,13 +420,13 @@ class InpaintingDetector:
         )
         
         # Create a ModelCheckpoint callback to save the best model weights
-        model_checkpoint_callback = ModelCheckpoint(
-            filepath=checkpoint_filepath,
-            save_best_only=True,
-            monitor='val_loss',
-            mode='min',
-            verbose=1
-        )
+        # model_checkpoint_callback = ModelCheckpoint(
+        #     filepath=checkpoint_filepath,
+        #     save_best_only=True,
+        #     monitor='val_loss',
+        #     mode='min',
+        #     verbose=1
+        # )
         
         # Create an EarlyStopping callback to prevent overfitting
         early_stopping = EarlyStopping(
@@ -436,24 +444,50 @@ class InpaintingDetector:
             min_lr=1e-6,
             verbose=1
         )
+
+        initial_learning_rate = self.learning_rate
+        lr_schedule = tf.keras.experimental.CosineDecayRestarts(
+            initial_learning_rate,
+            first_decay_steps=5,  # Steps per restart
+            t_mul=2.0,  # Each restart period gets longer
+            m_mul=0.9,  # Each restart peak is lower
+            alpha=0.1   # Minimum learning rate factor
+        )
         
+        lr_scheduler = tf.keras.callbacks.LearningRateScheduler(
+            lambda epoch: lr_schedule(epoch), 
+            verbose=1
+        )
+
         # Create a CSV logger to save training history
         csv_logger = tf.keras.callbacks.CSVLogger(
             self.save_path / 'training_history.csv'
         )
         
-        return [
-            model_checkpoint_callback,
+        callbacks =  [
+            # model_checkpoint_callback,
             early_stopping,
-            reduce_lr,
+            lr_scheduler,
             csv_logger
         ]
+
+        if self.model_type != 'cnn' and self.unfreeze:
+            unfreeze_callback = UnfreezeCallback(
+            model=self.model,
+            base_model=self.base_model,
+            unfreeze_epoch=self.unfreeze_epoch,
+            unfreeze_block = self.unfreeze_block,
+            new_lr=self.learning_rate * 0.1
+        )
+        callbacks.append(unfreeze_callback)
+
+        return callbacks
     
     def train_model(self) -> Dict:
         
         self.prepare_train_test_split()
         # Build the model
-        self.model = self.build_model()
+        self.model, self.base_model = self.build_model()
         
         # Create data generators
         train_generator, test_generator = self.create_data_generators()

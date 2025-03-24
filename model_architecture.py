@@ -77,7 +77,7 @@ def build_cnn_model(image_size=256, learning_rate=1e-4):
         metrics=['accuracy', keras.metrics.AUC()]
     )
     
-    return model
+    return model, None
 
 def build_resnet_model(image_size=256, learning_rate=1e-4):
 
@@ -88,17 +88,21 @@ def build_resnet_model(image_size=256, learning_rate=1e-4):
         input_shape=(image_size, image_size, 3)
     )
     
-    # Freeze the base model layers
     for layer in base_model.layers:
-        layer.trainable = False
+        # Freeze early layers (general features)
+        if 'conv5_' in layer.name or 'bn5_' in layer.name:
+            layer.trainable = True
+        # Unfreeze later layers (more specific features)
+        else:
+            layer.trainable = False
     
     # Add custom classification head
     x = base_model.output
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(512, activation='relu', kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(512, activation='relu', kernel_regularizer=l2(2e-4))(x)
     x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.5)(x)
-    x = layers.Dense(256, activation='relu', kernel_regularizer=l2(1e-4))(x)
+    x = layers.Dense(256, activation='relu', kernel_regularizer=l2(2e-4))(x)
     x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.5)(x)
     outputs = layers.Dense(1, activation='sigmoid')(x)
@@ -112,30 +116,38 @@ def build_resnet_model(image_size=256, learning_rate=1e-4):
         metrics=['accuracy', keras.metrics.AUC()]
     )
     
-    return model
+    return model, base_model
 
-def build_efficientnet_model(image_size=256, learning_rate=1e-4):
-
-    # Base EfficientNetB0 model without top layers
-    base_model = keras.applications.EfficientNetB0(
+def build_efficientnetv2_model(image_size=256, learning_rate=1e-4):
+    """Build EfficientNetV2 model for inpainting detection."""
+    # Base EfficientNetV2S model without top layers
+    base_model = keras.applications.EfficientNetV2S(
         include_top=False,
         weights='imagenet',
         input_shape=(image_size, image_size, 3)
     )
     
-    # Freeze the base model layers
+    # Initially freeze all layers
     for layer in base_model.layers:
         layer.trainable = False
     
     # Add custom classification head
     x = base_model.output
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(512, activation='relu', kernel_regularizer=l2(1e-4))(x)
+    
+    # First dense block
+    x = layers.Dense(512, activation=None, kernel_regularizer=l2(1e-4))(x)
     x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
     x = layers.Dropout(0.5)(x)
-    x = layers.Dense(256, activation='relu', kernel_regularizer=l2(1e-4))(x)
+    
+    # Second dense block
+    x = layers.Dense(256, activation=None, kernel_regularizer=l2(1e-4))(x)
     x = layers.BatchNormalization()(x)
+    x = layers.Activation('relu')(x)
     x = layers.Dropout(0.5)(x)
+    
+    # Output layer
     outputs = layers.Dense(1, activation='sigmoid')(x)
     
     model = Model(inputs=base_model.input, outputs=outputs)
@@ -147,4 +159,4 @@ def build_efficientnet_model(image_size=256, learning_rate=1e-4):
         metrics=['accuracy', keras.metrics.AUC()]
     )
     
-    return model
+    return model, base_model
