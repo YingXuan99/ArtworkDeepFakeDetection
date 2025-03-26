@@ -29,7 +29,7 @@ from sklearn.metrics import (
 from tqdm import tqdm
 
 # Constants
-FILEPATH = Path(__file__).parent
+FILEPATH = Path(__file__).parent.parent
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
@@ -62,8 +62,8 @@ class InpaintingDetector:
     def __post_init__(self) -> None:
         """Initialize the paths and configurations."""
         self.dataset_dir = Path(f'{FILEPATH}/dataset')
-        self.original_dir = Path(f'{FILEPATH}/mask_images/original')
-        self.inpainting_dir = Path(f'{FILEPATH}/mask_images/inpainting')
+        self.original_dir = Path(f'{FILEPATH}/dataset/mask_images/original')
+        self.inpainting_dir = Path(f'{FILEPATH}/dataset/mask_images/inpainting')
         
         # Create timestamp for experiment directory
         current_time = datetime.now().strftime("%d%m%Y-%H%M")

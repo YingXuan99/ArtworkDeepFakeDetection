@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 
 # Set up path
-FILEPATH = Path(__file__).parent
+FILEPATH = Path(__file__).parent.parent
 sys.path.append(f'{FILEPATH}')
 
 # Import the InpaintingDetector class
-from inpainting_detector import InpaintingDetector
+from scripts.inpainting_detector import InpaintingDetector
 
 # Set GPU device if needed
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     PREPARE_DATA = False
     if PREPARE_DATA:
         print("Preparing datasets...")
-        detector.prepare_datasets(source_dir='inpainting')
+        detector.prepare_datasets(source_dir='dataset/inpainting')
     
     # Step 3: Train the model
     print(f"Training {detector.model_type} model...")
