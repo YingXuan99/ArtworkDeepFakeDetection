@@ -37,8 +37,9 @@ We apply the original masks to both the original and inpainted images for the fo
 ### Image Processing
 
 - Images are resized to 256×256 pixels
-- Lanczos resampling is applied during resizing to preserve texture details
 - During exploratory data analysis, we found that inpainted images had slightly lower edge density than original images, making texture preservation important
+- Lanczos resampling is applied during resizing to preserve texture details
+![Edge Density ploy](images/edge_density.png)
 
 ## Model Architectures
 
@@ -68,7 +69,7 @@ We experimented with three primary model architectures:
 
 ## SVM Classifier Enhancement
 
-Research paper link at: ![CNN SVM Research paper](https://www.researchgate.net/publication/342996815_A_Full-Image_Full-Resolution_End-to-End-Trainable_CNN_Framework_for_Image_Forgery_Detection)
+Research paper link at: [CNN SVM Research paper](https://www.researchgate.net/publication/342996815_A_Full-Image_Full-Resolution_End-to-End-Trainable_CNN_Framework_for_Image_Forgery_Detection)
 Based on research suggesting that replacing the final layer with an SVM classifier can improve performance, we:
 
 1. Extracted features from the CNN's GlobalAveragePooling2D layer
