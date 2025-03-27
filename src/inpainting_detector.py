@@ -9,6 +9,13 @@ from typing import List, Any, Dict, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
+from PIL import Image
+from tqdm import tqdm
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, 
+    confusion_matrix, roc_curve, auc, classification_report
+)
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.models import load_model
@@ -16,13 +23,7 @@ from src.model_architecture import build_cnn_model, build_resnet_model, build_ef
 from src.preprocess_image import PreprocessImage
 from src.visualize import plot_confusion_matrix, plot_mask_type_comparison, plot_roc_curve, plot_training_history
 from src.training import create_callbacks, create_data_generators
-from PIL import Image
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score, 
-    confusion_matrix, roc_curve, auc, classification_report
-)
-from tqdm import tqdm
+from src.svm import SVMClassifier
 
 # Constants
 FILEPATH = Path(__file__).parent.parent
@@ -66,14 +67,6 @@ class InpaintingDetector:
         self.save_path = Path(f'{FILEPATH}/experiments/{current_time}_{self.config_name}')
         if not self.save_path.exists():
             os.makedirs(self.save_path)
-            
-        # Create model weights directory
-        self.weights_dir = self.save_path / 'weights'
-        if not self.weights_dir.exists():
-            os.makedirs(self.weights_dir)
-            
-        # Set checkpoint path
-        self.checkpoint_path = f'{self.weights_dir}/best_model.keras'
         
         # Set figure save path
         self.fig_path = self.save_path / 'figures'
@@ -198,35 +191,6 @@ class InpaintingDetector:
         
         return image_paths, labels
     
-    def load_and_preprocess_image(
-        self, 
-        image_path: str, 
-        target_size: Tuple[int, int] = (256, 256), 
-        preserve_texture: bool = True
-    ) -> np.ndarray:
-        
-        img = Image.open(image_path)
-        img = img.convert('RGB')  # Convert to RGB
-        
-        if preserve_texture:
-            # Convert to numpy array for OpenCV processing
-            img_array = np.array(img)
-            
-            # Use Lanczos resampling which better preserves high-frequency details
-            img_array = cv2.resize(
-                img_array, 
-                target_size, 
-                interpolation=cv2.INTER_LANCZOS4
-            )
-        else:
-            img = img.resize(target_size)  # Resize the image
-            img_array = np.array(img)
-
-        img_array = img_array.astype(np.float32)
-        img_array /= 255.0  # Normalize to [0, 1]
-        
-        return img_array
-    
     def build_model(self) -> Model:
 
         if self.model_type == "resnet":
@@ -287,9 +251,15 @@ class InpaintingDetector:
         )
     
     def load_model(self, model_path: str) -> None:
-
-        self.model = load_model(model_path)
-        print(f"Model loaded from {model_path}")
+        """Load a model from saved weights or full model."""
+        if str(model_path).endswith('_weights.h5') or str(model_path).endswith('.weights.h5'):
+            # This is a weights file, so build model first
+            self.model, self.base_model = self.build_model()
+            self.model.load_weights(model_path)
+            print(f"Model weights loaded from {model_path}")
+        else:
+            self.model = load_model(model_path)
+            print(f"Complete model loaded from {model_path}")
 
     def evaluate_model(self) -> Dict:
 
@@ -397,3 +367,76 @@ class InpaintingDetector:
         plot_mask_type_comparison(mask_type_metrics, self.fig_path)
         
         return metrics
+    
+    def train_svm(self, feature_layer_name=None) -> None:
+        
+        # If feature_layer_name is not provided, use the second to last layer
+        if feature_layer_name is None:
+            # Get the second-to-last layer name
+            feature_layer_name = self.model.layers[-2].name
+            print(f"Using features from layer: {feature_layer_name}")
+        
+        # Create SVM classifier
+        svm_classifier = SVMClassifier(
+            model=self.model,
+            layer_name=feature_layer_name,
+            save_path=self.save_path,
+            random_state=42
+        )
+        
+        # Prepare data for SVM
+        print("Preparing data for SVM training...")
+        
+        # Extract features for training data
+        train_features = svm_classifier.extract_features(
+            self.train_paths,
+            preprocess_fn=lambda path: self.load_and_preprocess_image(
+                path, 
+                target_size=(self.image_size, self.image_size)
+            ),
+            batch_size=self.batch_size
+        )
+        
+        # Extract features for test data
+        test_features = svm_classifier.extract_features(
+            self.test_paths,
+            preprocess_fn=lambda path: self.load_and_preprocess_image(
+                path, 
+                target_size=(self.image_size, self.image_size)
+            ),
+            batch_size=self.batch_size
+        )
+        
+        # Train SVMs with different kernels
+        kernels = ['linear', 'poly', 'rbf', 'sigmoid']
+        C_values = [0.1, 1.0, 10.0, 100.0]
+        
+        print(f"Training SVMs with kernels: {kernels} and C values: {C_values}")
+        
+        # Train SVMs
+        svm_results = svm_classifier.train_multiple_svms(
+            X_train=train_features,
+            y_train=self.train_labels,
+            X_val=test_features,
+            y_val=self.test_labels,
+            kernels=kernels,
+            C_values=C_values
+        )
+        
+        # Extract mask types from filenames
+        mask_types = []
+        for path in self.test_paths:
+            filename = os.path.basename(path)
+            # Extract mask type from filename (assuming format like "top_original_folder.png")
+            mask_type = filename.split('_')[0]
+            mask_types.append(mask_type)
+        
+        # Evaluate the best SVM model
+        print("Evaluating the best SVM model...")
+        svm_metrics = svm_classifier.evaluate_best_model(
+            X_test=test_features,
+            y_test=self.test_labels,
+            mask_types=mask_types
+        )
+        
+        print("SVM training and evaluation completed!")

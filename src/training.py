@@ -16,20 +16,7 @@ def create_data_generators(
     image_size: int,
     preprocess_fn: Callable
 ) -> Tuple[Any, Any]:
-    """Create data generators for training and validation.
-    
-    Args:
-        train_paths: List of training image paths
-        train_labels: Array of training labels
-        test_paths: List of test image paths
-        test_labels: Array of test labels
-        batch_size: Batch size for training
-        image_size: Target image size
-        preprocess_fn: Function to preprocess images
-        
-    Returns:
-        Tuple of (train_generator, test_generator)
-    """
+
     # Define data augmentation for training
     train_gen = ImageDataGenerator(
         rotation_range=5,    
@@ -78,20 +65,7 @@ def custom_generator(
     preprocess_fn: Callable,
     is_training: bool = False
 ):
-    """Create a custom generator for training or validation.
-    
-    Args:
-        features: List of image paths
-        labels: Array of labels
-        batch_size: Batch size
-        gen: ImageDataGenerator to use
-        image_size: Target image size
-        preprocess_fn: Function to preprocess images
-        is_training: Whether this is for training (apply augmentation)
-        
-    Yields:
-        Batches of (features, labels)
-    """
+
     while True:
         batch_indices = np.random.choice(len(features), batch_size)
         batch_features = np.array([
@@ -119,21 +93,7 @@ def create_callbacks(
     unfreeze_epoch: int = 5,
     unfreeze_block: List[str] = None
 ) -> List[Callback]:
-    """Create callbacks for model training.
-    
-    Args:
-        save_path: Path to save training artifacts
-        learning_rate: Initial learning rate
-        model: The model being trained (needed for unfreeze callback)
-        base_model: Base model (needed for unfreeze callback) 
-        model_type: Type of model ("cnn", "resnet", etc.)
-        unfreeze: Whether to unfreeze layers during training
-        unfreeze_epoch: Epoch at which to unfreeze layers
-        unfreeze_block: List of block names to unfreeze
-        
-    Returns:
-        List of callbacks for training
-    """
+
     if unfreeze_block is None:
         unfreeze_block = ['block5', 'block6', 'block7']
         

@@ -12,14 +12,7 @@ class PreprocessImage:
     
     @staticmethod
     def determine_mask_type(mask_array: np.ndarray) -> str:
-        """Determine the type of mask applied to an image.
-        
-        Args:
-            mask_array: NumPy array of the mask image
-            
-        Returns:
-            str: Mask type (top, bottom, left, right, diagonal_top_left, etc.)
-        """
+
         height, width = mask_array.shape
         binary_mask = (mask_array == 255).astype(float)
         
@@ -86,15 +79,7 @@ class PreprocessImage:
     
     @staticmethod
     def apply_mask(image_path: str, mask_path: str) -> Tuple[Image.Image, str]:
-        """Apply mask to an image and determine the mask type.
-        
-        Args:
-            image_path: Path to the image file
-            mask_path: Path to the mask file
-            
-        Returns:
-            Tuple containing the masked image and the mask type
-        """
+
         image = Image.open(image_path).convert('RGBA')
         mask = Image.open(mask_path).convert('L')
         
@@ -119,16 +104,7 @@ class PreprocessImage:
         target_size: Tuple[int, int] = (256, 256), 
         preserve_texture: bool = True
     ) -> np.ndarray:
-        """Load and preprocess an image for model input.
         
-        Args:
-            image_path: Path to the image file
-            target_size: Target dimensions (height, width)
-            preserve_texture: Whether to preserve texture using Lanczos resampling
-            
-        Returns:
-            Preprocessed image as numpy array
-        """
         img = Image.open(image_path)
         img = img.convert('RGB')  # Convert to RGB
         
@@ -153,16 +129,7 @@ class PreprocessImage:
     
     @staticmethod
     def process_folder(folder_path: str, original_dir: str, inpainting_dir: str) -> Tuple[bool, Optional[str]]:
-        """Process a folder containing original, inpainting, and mask images.
-        
-        Args:
-            folder_path: Path to the folder containing image files
-            original_dir: Directory to save original masked images
-            inpainting_dir: Directory to save inpainting masked images
-            
-        Returns:
-            Tuple indicating success (bool) and mask type (str)
-        """
+
         folder_name = os.path.basename(folder_path)
         original_file = os.path.join(folder_path, 'original.png')
         inpainting_file = os.path.join(folder_path, 'inpainting.png')
@@ -189,17 +156,7 @@ class PreprocessImage:
     
     @staticmethod
     def process_folders_with_threading(folders: List[str], original_dir: str, inpainting_dir: str, max_workers: int = None):
-        """Process multiple folders with threading for performance.
-        
-        Args:
-            folders: List of folder paths to process
-            original_dir: Directory to save original masked images
-            inpainting_dir: Directory to save inpainting masked images
-            max_workers: Maximum number of worker threads
-            
-        Returns:
-            List of results (success, mask_type) for each folder
-        """
+
         # Process directory with thread pool
         results = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -227,15 +184,7 @@ class PreprocessImage:
     
     @staticmethod
     def load_from_folder(folder: str, label: int) -> Tuple[List[str], List[int]]:
-        """Load image paths and labels from a folder.
-        
-        Args:
-            folder: Path to the folder containing images
-            label: Label to assign to all images in the folder
-            
-        Returns:
-            Tuple of (image_paths, labels)
-        """
+
         image_paths = []
         labels = []
         

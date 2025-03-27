@@ -89,12 +89,7 @@ def build_resnet_model(image_size=256, learning_rate=1e-4):
     )
     
     for layer in base_model.layers:
-        # Freeze early layers (general features)
-        if 'conv5_' in layer.name or 'bn5_' in layer.name:
-            layer.trainable = True
-        # Unfreeze later layers (more specific features)
-        else:
-            layer.trainable = False
+        layer.trainable = False
     
     # Add custom classification head
     x = base_model.output

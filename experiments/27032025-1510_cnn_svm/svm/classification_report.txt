@@ -1,0 +1,8 @@
+              precision    recall  f1-score   support
+
+   Inpainted       0.77      0.78      0.78      1013
+    Original       0.78      0.77      0.77      1013
+
+    accuracy                           0.78      2026
+   macro avg       0.78      0.78      0.78      2026
+weighted avg       0.78      0.78      0.78      2026

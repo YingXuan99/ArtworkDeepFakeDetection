@@ -4,15 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 def plot_mask_type_comparison(mask_type_metrics: Dict, fig_path: Path) -> None:
-    """Plot performance comparison across different mask types.
-    
-    Args:
-        mask_type_metrics: Dictionary containing metrics for each mask type
-        fig_path: Directory to save the generated figures
-    """
+
     mask_types = list(mask_type_metrics.keys())
     
     # Extract metrics for plotting
@@ -90,12 +85,7 @@ def plot_mask_type_comparison(mask_type_metrics: Dict, fig_path: Path) -> None:
     plt.close()
 
 def plot_training_history(history_path: Path, fig_path: Path) -> None:
-    """Plot training history metrics from CSV.
-    
-    Args:
-        history_path: Path to the training history CSV file
-        fig_path: Directory to save the generated figures
-    """
+
     # Load training history from CSV
     history_df = pd.read_csv(history_path)
     
@@ -141,13 +131,7 @@ def plot_training_history(history_path: Path, fig_path: Path) -> None:
     print(f"Training history plots saved to {fig_path}")
 
 def plot_confusion_matrix(cm: np.ndarray, fig_path: Path, title: str = 'Confusion Matrix') -> None:
-    """Plot confusion matrix.
-    
-    Args:
-        cm: Confusion matrix array (2x2 for binary classification)
-        fig_path: Directory to save the generated figure
-        title: Title for the plot
-    """
+
     plt.figure(figsize=(10, 8))
     plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     plt.title(title)
@@ -193,14 +177,7 @@ def plot_roc_curve(fpr: np.ndarray, tpr: np.ndarray, roc_auc: float, fig_path: P
 
 def plot_sample_images(original_images: List[np.ndarray], inpainted_images: List[np.ndarray], 
                     fig_path: Path, num_samples: int = 5) -> None:
-    """Plot sample images from the dataset for comparison.
-    
-    Args:
-        original_images: List of original images
-        inpainted_images: List of inpainted images
-        fig_path: Directory to save the generated figure
-        num_samples: Number of sample pairs to plot
-    """
+
     num_samples = min(num_samples, len(original_images), len(inpainted_images))
     
     # Create a figure with subplots for each sample pair
@@ -227,3 +204,78 @@ def plot_sample_images(original_images: List[np.ndarray], inpainted_images: List
     plt.tight_layout()
     plt.savefig(fig_path / 'sample_image_comparison.png')
     plt.close()
+
+def plot_model_comparison(cnn_metrics: Dict, svm_metrics: Dict, save_path: Path, 
+                        svm_kernel: Optional[str] = None) -> None:
+    try:
+        # Create comparison plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Metrics to compare
+        metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'auc']
+        cnn_values = [cnn_metrics[m] for m in metrics]
+        svm_values = [svm_metrics[m] for m in metrics]
+        
+        x = np.arange(len(metrics))
+        width = 0.35
+        
+        kernel_label = f' ({svm_kernel})' if svm_kernel else ''
+        ax.bar(x - width/2, cnn_values, width, label='CNN')
+        ax.bar(x + width/2, svm_values, width, label=f'SVM{kernel_label}')
+        
+        ax.set_ylabel('Score')
+        ax.set_title('CNN vs SVM Performance Comparison')
+        ax.set_xticks(x)
+        ax.set_xticklabels(metrics)
+        ax.legend()
+        
+        plt.tight_layout()
+        plt.savefig(save_path / 'cnn_vs_svm_comparison.png')
+        plt.close()
+        
+        # Also try to compare by mask type if available
+        if ('mask_type_metrics' in cnn_metrics and 
+            'mask_type_metrics' in svm_metrics):
+            
+            cnn_mask_metrics = cnn_metrics['mask_type_metrics']
+            svm_mask_metrics = svm_metrics['mask_type_metrics']
+            
+            common_mask_types = set(cnn_mask_metrics.keys()) & set(svm_mask_metrics.keys())
+            
+            for metric in ['accuracy', 'f1_score']:
+                fig, ax = plt.subplots(figsize=(12, 6))
+                
+                cnn_values = []
+                svm_values = []
+                mask_types = []
+                
+                for mask_type in common_mask_types:
+                    cnn_value = cnn_mask_metrics[mask_type][metric]
+                    svm_value = svm_mask_metrics[mask_type][metric]
+                    
+                    # Skip if either value is not numeric
+                    if isinstance(cnn_value, str) or isinstance(svm_value, str):
+                        continue
+                    
+                    cnn_values.append(cnn_value)
+                    svm_values.append(svm_value)
+                    mask_types.append(mask_type)
+                
+                x = np.arange(len(mask_types))
+                width = 0.35
+                
+                ax.bar(x - width/2, cnn_values, width, label='CNN')
+                ax.bar(x + width/2, svm_values, width, label=f'SVM{kernel_label}')
+                
+                ax.set_ylabel(metric.capitalize())
+                ax.set_title(f'CNN vs SVM {metric.capitalize()} by Mask Type')
+                ax.set_xticks(x)
+                ax.set_xticklabels(mask_types, rotation=45)
+                ax.legend()
+                
+                plt.tight_layout()
+                plt.savefig(save_path / f'cnn_vs_svm_{metric}_by_mask_type.png')
+                plt.close()
+    
+    except Exception as e:
+        print(f"Could not create comparison plots: {str(e)}")
